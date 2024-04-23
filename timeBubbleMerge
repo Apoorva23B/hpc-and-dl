@@ -1,0 +1,161 @@
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+#include <omp.h>
+
+using namespace std;
+
+// Sequential Bubble Sort
+void bubbleSortSequential(int arr[], int n) {
+    for (int i = 0; i < n - 1; ++i) {
+        for (int j = 0; j < n - i - 1; ++j) {
+            if (arr[j] > arr[j + 1]) {
+                swap(arr[j], arr[j + 1]);
+            }
+        }
+    }
+}
+
+// Parallel Bubble Sort
+void bubbleSortParallel(int arr[], int n) {
+    int first, last;
+    for (int i = 0; i < n - 1; ++i) {
+        first = i % 2;
+        #pragma omp parallel for shared(arr, first)
+        for (int j = first; j < n - 1; j += 2) {
+            if (arr[j] > arr[j + 1]) {
+                swap(arr[j], arr[j + 1]);
+            }
+        }
+    }
+}
+
+// Merge function for Merge Sort
+void merge(int arr[], int l, int m, int r) {
+    int n1 = m - l + 1;
+    int n2 = r - m;
+
+    int L[n1], R[n2];
+    for (int i = 0; i < n1; ++i) {
+        L[i] = arr[l + i];
+    }
+    for (int j = 0; j < n2; ++j) {
+        R[j] = arr[m + 1 + j];
+    }
+
+    int i = 0, j = 0, k = l;
+    while (i < n1 && j < n2) {
+        if (L[i] <= R[j]) {
+            arr[k++] = L[i++];
+        } else {
+            arr[k++] = R[j++];
+        }
+    }
+    while (i < n1) {
+        arr[k++] = L[i++];
+    }
+    while (j < n2) {
+        arr[k++] = R[j++];
+    }
+}
+
+// Sequential Merge Sort
+void mergeSortSequential(int arr[], int l, int r) {
+    if (l < r) {
+        int m = l + (r - l) / 2;
+        mergeSortSequential(arr, l, m);
+        mergeSortSequential(arr, m + 1, r);
+        merge(arr, l, m, r);
+    }
+}
+
+// Parallel Merge Sort
+void mergeSortParallel(int arr[], int l, int r) {
+    if (l < r) {
+        int m = l + (r - l) / 2;
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                mergeSortParallel(arr, l, m);
+            }
+            #pragma omp section
+            {
+                mergeSortParallel(arr, m + 1, r);
+            }
+        }
+        merge(arr, l, m, r);
+    }
+}
+
+// Function to generate random array
+void generateRandomArray(int arr[], int n) {
+    srand(time(0));
+    for (int i = 0; i < n; ++i) {
+        arr[i] = rand() % 1000;
+    }
+}
+
+// Function to check if array is sorted
+bool isSorted(int arr[], int n) {
+    for (int i = 1; i < n; ++i) {
+        if (arr[i - 1] > arr[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int main() {
+    int n;
+    cout << "Enter the size of the array: ";
+    cin >> n;
+
+    int *arrSequential = new int[n];
+    int *arrParallel = new int[n];
+
+    generateRandomArray(arrSequential, n);
+    for (int i = 0; i < n; ++i) {
+        arrParallel[i] = arrSequential[i];
+    }
+
+    // Sequential Bubble Sort
+    double startTime = omp_get_wtime();
+    bubbleSortSequential(arrSequential, n);
+    double sequentialBubbleTime = omp_get_wtime() - startTime;
+
+    // Parallel Bubble Sort
+    startTime = omp_get_wtime();
+    bubbleSortParallel(arrParallel, n);
+    double parallelBubbleTime = omp_get_wtime() - startTime;
+
+    cout << "Bubble Sort:\n";
+    cout << "Sequential Time: " << sequentialBubbleTime << " seconds\n";
+    cout << "Parallel Time: " << parallelBubbleTime << " seconds\n";
+    cout << "Sorted Correctly: " << (isSorted(arrParallel, n) ? "Yes" : "No") << endl;
+
+    // Reset arrays for Merge Sort
+    for (int i = 0; i < n; ++i) {
+        arrParallel[i] = arrSequential[i];
+    }
+
+    // Sequential Merge Sort
+    startTime = omp_get_wtime();
+    mergeSortSequential(arrSequential, 0, n - 1);
+    double sequentialMergeTime = omp_get_wtime() - startTime;
+
+    // Parallel Merge Sort
+    startTime = omp_get_wtime();
+    mergeSortParallel(arrParallel, 0, n - 1);
+    double parallelMergeTime = omp_get_wtime() - startTime;
+
+    cout << "\nMerge Sort:\n";
+    cout << "Sequential Time: " << sequentialMergeTime << " seconds\n";
+    cout << "Parallel Time: " << parallelMergeTime << " seconds\n";
+    cout << "Sorted Correctly: " << (isSorted(arrParallel, n) ? "Yes" : "No") << endl;
+
+    delete[] arrSequential;
+    delete[] arrParallel;
+
+    return 0;
+}
